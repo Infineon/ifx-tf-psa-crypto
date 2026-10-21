@@ -1,0 +1,17 @@
+{
+    "_comment":     "TF-M builtin key loader. Special driver: sets PSA_CRYPTO_DRIVER_PRESENT and provides key-location dispatch (TFM_BUILTIN_KEY_LOADER_KEY_LOCATION). driver_id overrides the default name; header/enum come from JSON, dispatch and init/free hooks stay hand-written.",
+    "prefix":       "tfm_builtin_key_loader",
+    "type":         "opaque",
+    "location":     "0x7fff10",
+    "driver_id":    "PSA_CRYPTO_TFM_BUILTIN_KEY_LOADER_DRIVER_ID",
+    "accelerator":  true,
+    "header_comment": "Include TF-M builtin key driver",
+    "mbedtls/h_condition":   "defined(PSA_CRYPTO_DRIVER_TFM_BUILTIN_KEY_LOADER)",
+    "headers":      ["tfm_builtin_key_loader.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(PSA_CRYPTO_DRIVER_TFM_BUILTIN_KEY_LOADER)",
+            "entry_points": []
+        }
+    ]
+}

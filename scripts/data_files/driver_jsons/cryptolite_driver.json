@@ -1,0 +1,14 @@
+{
+    "_comment":     "POC: CRYPTOLITE transparent accelerator (subset engine).",
+    "prefix":       "ifx_cryptolite",
+    "type":         "transparent",
+    "accelerator": true,
+    "mbedtls/h_condition":   "defined(IFX_PSA_CRYPTOLITE_PRESENT)",
+    "headers":      ["ifx_cryptolite_transparent_functions.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(IFX_PSA_CRYPTOLITE_PRESENT)",
+            "entry_points": []
+        }
+    ]
+}

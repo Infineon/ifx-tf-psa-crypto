@@ -1,0 +1,3 @@
+IFX SE external RNG: generate 32 bytes through PSA
+depends_on:MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG
+ifx_se_rng_generate:32

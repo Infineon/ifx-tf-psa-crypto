@@ -1,0 +1,36 @@
+/* BEGIN_HEADER */
+#include <stdint.h>
+
+#include "psa/crypto.h"
+/* END_HEADER */
+
+/* BEGIN_CASE */
+void ifx_se_rng_generate(int output_size_arg)
+{
+#if defined(IFX_PSA_RANDOM_BY_SE_DPA) && \
+    defined(MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG)
+    uint8_t output[64] = { 0 };
+    size_t output_size = (size_t) output_size_arg;
+    size_t index;
+    int all_zero = 1;
+
+    TEST_LE_U(output_size, sizeof(output));
+    PSA_ASSERT(psa_crypto_init());
+    PSA_ASSERT(psa_generate_random(output, output_size));
+    for (index = 0; index < output_size; index++) {
+        if (output[index] != 0) {
+            all_zero = 0;
+            break;
+        }
+    }
+    TEST_ASSERT(!all_zero);
+
+exit:
+    PSA_DONE();
+#else
+    (void) output_size_arg;
+    mbedtls_test_skip("IFX SE external RNG is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */

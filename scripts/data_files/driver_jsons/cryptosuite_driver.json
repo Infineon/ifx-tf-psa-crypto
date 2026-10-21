@@ -1,0 +1,18 @@
+{
+    "_comment":     "POC: CRYPTOSUITE supplemental transparent accelerator (prebuilt).",
+    "prefix":       "ifx_cryptosuite",
+    "type":         "transparent",
+    "accelerator": true,
+    "mbedtls/h_condition":   "defined(IFX_PSA_CRYPTOSUITE_PRESENT)",
+    "headers":      [
+        "ifx_cryptosuite_transparent_cipher.h",
+        "ifx_cryptosuite_transparent_mac.h",
+        "ifx_cryptosuite_transparent_aead.h"
+    ],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(IFX_PSA_CRYPTOSUITE_PRESENT)",
+            "entry_points": []
+        }
+    ]
+}

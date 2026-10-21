@@ -1,0 +1,11 @@
+IFX SE CMAC-KDF: derive AES key into SE and use it
+depends_on:PSA_WANT_ALG_CBC_NO_PADDING:PSA_WANT_KEY_TYPE_AES:PSA_WANT_KEY_TYPE_DERIVE
+ifx_se_kdf_output_key_round_trip:"0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b":"f0f1f2f3f4f5f6f7f8f9":"000102030405060708090a0b0c":"00112233445566778899aabbccddeeff"
+
+IFX SE CMAC-KDF: empty label is rejected
+depends_on:PSA_WANT_KEY_TYPE_DERIVE
+ifx_se_kdf_empty_label_rejected:"0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
+
+IFX SE SHA-256: one-shot and multipart known answer
+depends_on:PSA_WANT_ALG_SHA_256
+ifx_se_sha256_known_answer:"616263":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

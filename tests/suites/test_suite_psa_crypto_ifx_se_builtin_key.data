@@ -1,0 +1,14 @@
+IFX SE built-in test key: ECDSA P-256 sign and local verify
+depends_on:PSA_WANT_ALG_ECDSA:PSA_WANT_ALG_SHA_256:PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC:PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT:PSA_WANT_ECC_SECP_R1_256
+ifx_se_builtin_sign_local_verify_hash:PSA_ALG_ECDSA(PSA_ALG_SHA_256):"9ac4335b469bbd791439248504dd0d49c71349a295fee5a1c68507f45a9e1c7b"
+
+IFX SE built-in test key: AES-128 CBC round trip
+depends_on:PSA_WANT_ALG_CBC_NO_PADDING:PSA_WANT_KEY_TYPE_AES
+ifx_se_builtin_aes_round_trip:"00112233445566778899aabbccddeeff"
+
+IFX SE built-in test key: CMAC round trip
+depends_on:PSA_WANT_ALG_CMAC:PSA_WANT_KEY_TYPE_AES
+ifx_se_builtin_cmac_round_trip:"00112233445566778899aabbccddeeff"
+
+IFX SE built-in test key: CMAC-KDF deterministic output
+ifx_se_builtin_cmac_kdf:"f0f1f2f3f4f5f6f7f8f9":"000102030405060708090a0b0c"

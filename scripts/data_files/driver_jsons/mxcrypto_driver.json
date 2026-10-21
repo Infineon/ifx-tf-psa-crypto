@@ -1,0 +1,14 @@
+{
+    "_comment":     "MXCRYPTO transparent accelerator manifest. Dispatch bodies are currently hand-written in the templates (gap 4 in docs/driver-integration.md), so entry_points is empty to avoid generating duplicate dispatch. Only identity (header include + driver-id enum) is JSON-driven today.",
+    "prefix":       "ifx_mxcrypto",
+    "type":         "transparent",
+    "accelerator": true,
+    "mbedtls/h_condition":   "defined(IFX_PSA_MXCRYPTO_PRESENT)",
+    "headers":      ["ifx_mxcrypto_transparent_functions.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(IFX_PSA_MXCRYPTO_PRESENT)",
+            "entry_points": []
+        }
+    ]
+}

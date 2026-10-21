@@ -1,0 +1,17 @@
+{
+    "_comment":     "POC: SE-DPA opaque driver (Secure Element). Uses driver_id override because the enum name IFX_SE_DPA_DRIVER_ID does not follow the default prefix_type pattern.",
+    "prefix":       "ifx_se",
+    "type":         "opaque",
+    "location":     "0x800000",
+    "driver_id":    "IFX_SE_DPA_DRIVER_ID",
+    "accelerator": true,
+    "mbedtls/h_condition":   "defined(IFX_PSA_SE_DPA_PRESENT)",
+    "headers":      ["ifx_se_psacrypto.h"],
+    "extra_includes": ["<string.h>"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(IFX_PSA_SE_DPA_PRESENT)",
+            "entry_points": []
+        }
+    ]
+}

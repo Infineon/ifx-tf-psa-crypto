@@ -1,0 +1,166 @@
+/* BEGIN_HEADER */
+#include <stdint.h>
+
+#include "psa/crypto.h"
+/* END_HEADER */
+
+/* BEGIN_CASE */
+void ifx_se_kdf_output_key_round_trip(data_t *secret, data_t *label,
+                                      data_t *seed, data_t *plaintext)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT)
+    psa_key_derivation_operation_t operation = PSA_KEY_DERIVATION_OPERATION_INIT;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_key_attributes_t secret_attributes = PSA_KEY_ATTRIBUTES_INIT;
+    mbedtls_svc_key_id_t key = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t secret_key = MBEDTLS_SVC_KEY_ID_INIT;
+    uint8_t ciphertext[64] = { 0 };
+    uint8_t decrypted[64] = { 0 };
+    size_t ciphertext_length = 0;
+    size_t decrypted_length = 0;
+
+    PSA_ASSERT(psa_crypto_init());
+    psa_set_key_lifetime(&secret_attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&secret_attributes, PSA_KEY_TYPE_DERIVE);
+    psa_set_key_usage_flags(&secret_attributes, PSA_KEY_USAGE_DERIVE);
+    psa_set_key_algorithm(&secret_attributes, PSA_ALG_KDF_IFX_SE_AES_CMAC);
+    PSA_ASSERT(psa_import_key(&secret_attributes,
+                              secret->x, secret->len, &secret_key));
+    PSA_ASSERT(psa_key_derivation_setup(&operation,
+                                        PSA_ALG_KDF_IFX_SE_AES_CMAC));
+    PSA_ASSERT(psa_key_derivation_input_key(
+        &operation, PSA_KEY_DERIVATION_INPUT_SECRET, secret_key));
+    PSA_ASSERT(psa_key_derivation_input_bytes(
+        &operation, IFX_SE_KEY_DERIVATION_INPUT_LABEL,
+        label->x, label->len));
+    PSA_ASSERT(psa_key_derivation_input_bytes(
+        &operation, IFX_SE_KEY_DERIVATION_INPUT_SEED,
+        seed->x, seed->len));
+
+    psa_set_key_lifetime(&attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
+    psa_set_key_bits(&attributes, 128u);
+    psa_set_key_usage_flags(&attributes,
+                            PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_CBC_NO_PADDING);
+    PSA_ASSERT(psa_key_derivation_output_key(&attributes, &operation, &key));
+    PSA_ASSERT(psa_get_key_attributes(key, &attributes));
+    TEST_EQUAL(PSA_KEY_LIFETIME_GET_LOCATION(
+                   psa_get_key_lifetime(&attributes)),
+               PSA_KEY_LOCATION_IFX_SE);
+
+    PSA_ASSERT(psa_cipher_encrypt(key, PSA_ALG_CBC_NO_PADDING,
+                                  plaintext->x, plaintext->len,
+                                  ciphertext, sizeof(ciphertext),
+                                  &ciphertext_length));
+    PSA_ASSERT(psa_cipher_decrypt(key, PSA_ALG_CBC_NO_PADDING,
+                                  ciphertext, ciphertext_length,
+                                  decrypted, sizeof(decrypted),
+                                  &decrypted_length));
+    TEST_EQUAL(decrypted_length, plaintext->len);
+    TEST_MEMORY_COMPARE(decrypted, decrypted_length,
+                        plaintext->x, plaintext->len);
+
+exit:
+    psa_key_derivation_abort(&operation);
+    psa_reset_key_attributes(&attributes);
+    psa_reset_key_attributes(&secret_attributes);
+    psa_destroy_key(key);
+    psa_destroy_key(secret_key);
+    PSA_DONE();
+#else
+    (void) secret;
+    (void) label;
+    (void) seed;
+    (void) plaintext;
+    mbedtls_test_skip("IFX SE KDF driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */
+
+/* BEGIN_CASE */
+void ifx_se_kdf_empty_label_rejected(data_t *secret)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT)
+    psa_key_derivation_operation_t operation = PSA_KEY_DERIVATION_OPERATION_INIT;
+    psa_key_attributes_t secret_attributes = PSA_KEY_ATTRIBUTES_INIT;
+    mbedtls_svc_key_id_t secret_key = MBEDTLS_SVC_KEY_ID_INIT;
+
+    PSA_ASSERT(psa_crypto_init());
+    psa_set_key_lifetime(&secret_attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&secret_attributes, PSA_KEY_TYPE_DERIVE);
+    psa_set_key_usage_flags(&secret_attributes, PSA_KEY_USAGE_DERIVE);
+    psa_set_key_algorithm(&secret_attributes, PSA_ALG_KDF_IFX_SE_AES_CMAC);
+    PSA_ASSERT(psa_import_key(&secret_attributes,
+                              secret->x, secret->len, &secret_key));
+    PSA_ASSERT(psa_key_derivation_setup(&operation,
+                                        PSA_ALG_KDF_IFX_SE_AES_CMAC));
+    PSA_ASSERT(psa_key_derivation_input_key(
+        &operation, PSA_KEY_DERIVATION_INPUT_SECRET, secret_key));
+    TEST_EQUAL(psa_key_derivation_input_bytes(
+                   &operation, IFX_SE_KEY_DERIVATION_INPUT_LABEL,
+                   NULL, 0),
+               PSA_ERROR_INVALID_ARGUMENT);
+
+exit:
+    psa_key_derivation_abort(&operation);
+    psa_reset_key_attributes(&secret_attributes);
+    psa_destroy_key(secret_key);
+    PSA_DONE();
+#else
+    (void) secret;
+    mbedtls_test_skip("IFX SE KDF driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */
+
+/* BEGIN_CASE */
+void ifx_se_sha256_known_answer(data_t *input, data_t *expected_hash)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT) && defined(IFX_PSA_SHA256_BY_SE_DPA)
+    psa_hash_operation_t operation = PSA_HASH_OPERATION_INIT;
+    uint8_t hash[PSA_HASH_LENGTH(PSA_ALG_SHA_256)] = { 0 };
+    uint8_t multipart_hash[PSA_HASH_LENGTH(PSA_ALG_SHA_256)] = { 0 };
+    size_t hash_length = 0;
+    size_t multipart_hash_length = 0;
+    size_t first_part_length = input->len / 2u;
+
+    PSA_ASSERT(psa_crypto_init());
+    PSA_ASSERT(psa_hash_compute(PSA_ALG_SHA_256,
+                                input->x, input->len,
+                                hash, sizeof(hash), &hash_length));
+    TEST_EQUAL(hash_length, expected_hash->len);
+    TEST_MEMORY_COMPARE(hash, hash_length,
+                        expected_hash->x, expected_hash->len);
+
+    PSA_ASSERT(psa_hash_setup(&operation, PSA_ALG_SHA_256));
+    PSA_ASSERT(psa_hash_update(&operation, input->x, first_part_length));
+    PSA_ASSERT(psa_hash_update(&operation,
+                               input->x + first_part_length,
+                               input->len - first_part_length));
+    PSA_ASSERT(psa_hash_finish(&operation, multipart_hash,
+                               sizeof(multipart_hash),
+                               &multipart_hash_length));
+    TEST_EQUAL(multipart_hash_length, expected_hash->len);
+    TEST_MEMORY_COMPARE(multipart_hash, multipart_hash_length,
+                        expected_hash->x, expected_hash->len);
+
+exit:
+    psa_hash_abort(&operation);
+    PSA_DONE();
+#else
+    (void) input;
+    (void) expected_hash;
+    mbedtls_test_skip("IFX SE SHA-256 driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */

@@ -1,0 +1,278 @@
+/* BEGIN_HEADER */
+#include <stdint.h>
+#include <string.h>
+
+#include "psa/crypto.h"
+/* END_HEADER */
+
+/* BEGIN_CASE */
+void ifx_se_cipher_round_trip(data_t *key_data, data_t *iv, data_t *plaintext)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT) && defined(PSA_WANT_ALG_CBC_NO_PADDING)
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_cipher_operation_t encrypt_operation = PSA_CIPHER_OPERATION_INIT;
+    psa_cipher_operation_t decrypt_operation = PSA_CIPHER_OPERATION_INIT;
+    mbedtls_svc_key_id_t key = MBEDTLS_SVC_KEY_ID_INIT;
+    uint8_t one_shot_ciphertext[64] = { 0 };
+    uint8_t one_shot_plaintext[64] = { 0 };
+    uint8_t multipart_ciphertext[64] = { 0 };
+    uint8_t multipart_plaintext[64] = { 0 };
+    size_t one_shot_ciphertext_length = 0;
+    size_t one_shot_plaintext_length = 0;
+    size_t multipart_ciphertext_length = 0;
+    size_t multipart_plaintext_length = 0;
+    size_t output_length = 0;
+
+    PSA_ASSERT(psa_crypto_init());
+    psa_set_key_lifetime(&attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
+    psa_set_key_bits(&attributes, PSA_BYTES_TO_BITS(key_data->len));
+    psa_set_key_usage_flags(&attributes,
+                            PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_CBC_NO_PADDING);
+    PSA_ASSERT(psa_import_key(&attributes, key_data->x, key_data->len, &key));
+
+    PSA_ASSERT(psa_cipher_encrypt(key, PSA_ALG_CBC_NO_PADDING,
+                                  plaintext->x, plaintext->len,
+                                  one_shot_ciphertext,
+                                  sizeof(one_shot_ciphertext),
+                                  &one_shot_ciphertext_length));
+    PSA_ASSERT(psa_cipher_decrypt(key, PSA_ALG_CBC_NO_PADDING,
+                                  one_shot_ciphertext,
+                                  one_shot_ciphertext_length,
+                                  one_shot_plaintext,
+                                  sizeof(one_shot_plaintext),
+                                  &one_shot_plaintext_length));
+    TEST_EQUAL(one_shot_plaintext_length, plaintext->len);
+    TEST_MEMORY_COMPARE(one_shot_plaintext, one_shot_plaintext_length,
+                        plaintext->x, plaintext->len);
+
+    PSA_ASSERT(psa_cipher_encrypt_setup(&encrypt_operation, key,
+                                        PSA_ALG_CBC_NO_PADDING));
+    PSA_ASSERT(psa_cipher_set_iv(&encrypt_operation, iv->x, iv->len));
+    PSA_ASSERT(psa_cipher_update(&encrypt_operation,
+                                 plaintext->x, plaintext->len,
+                                 multipart_ciphertext,
+                                 sizeof(multipart_ciphertext),
+                                 &multipart_ciphertext_length));
+    PSA_ASSERT(psa_cipher_finish(&encrypt_operation,
+                                 multipart_ciphertext + multipart_ciphertext_length,
+                                 sizeof(multipart_ciphertext) - multipart_ciphertext_length,
+                                 &output_length));
+    multipart_ciphertext_length += output_length;
+
+    PSA_ASSERT(psa_cipher_decrypt_setup(&decrypt_operation, key,
+                                        PSA_ALG_CBC_NO_PADDING));
+    PSA_ASSERT(psa_cipher_set_iv(&decrypt_operation, iv->x, iv->len));
+    PSA_ASSERT(psa_cipher_update(&decrypt_operation,
+                                 multipart_ciphertext,
+                                 multipart_ciphertext_length,
+                                 multipart_plaintext,
+                                 sizeof(multipart_plaintext),
+                                 &multipart_plaintext_length));
+    PSA_ASSERT(psa_cipher_finish(&decrypt_operation,
+                                 multipart_plaintext + multipart_plaintext_length,
+                                 sizeof(multipart_plaintext) - multipart_plaintext_length,
+                                 &output_length));
+    multipart_plaintext_length += output_length;
+    TEST_EQUAL(multipart_plaintext_length, plaintext->len);
+    TEST_MEMORY_COMPARE(multipart_plaintext, multipart_plaintext_length,
+                        plaintext->x, plaintext->len);
+
+exit:
+    psa_cipher_abort(&encrypt_operation);
+    psa_cipher_abort(&decrypt_operation);
+    psa_reset_key_attributes(&attributes);
+    psa_destroy_key(key);
+    PSA_DONE();
+#else
+    (void) key_data;
+    (void) iv;
+    (void) plaintext;
+    mbedtls_test_skip("IFX SE CBC driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */
+
+/* BEGIN_CASE */
+void ifx_se_aead_round_trip(data_t *key_data, data_t *nonce,
+                            data_t *additional_data, data_t *plaintext)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT) && defined(PSA_WANT_ALG_CCM)
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_aead_operation_t encrypt_operation = PSA_AEAD_OPERATION_INIT;
+    psa_aead_operation_t decrypt_operation = PSA_AEAD_OPERATION_INIT;
+    mbedtls_svc_key_id_t key = MBEDTLS_SVC_KEY_ID_INIT;
+    uint8_t ciphertext[80] = { 0 };
+    uint8_t decrypted[64] = { 0 };
+    uint8_t multipart_ciphertext[80] = { 0 };
+    uint8_t multipart_plaintext[64] = { 0 };
+    size_t ciphertext_length = 0;
+    size_t decrypted_length = 0;
+    size_t multipart_ciphertext_length = 0;
+    size_t multipart_plaintext_length = 0;
+    size_t output_length = 0;
+    size_t tag_length = PSA_AEAD_TAG_LENGTH(PSA_KEY_TYPE_AES,
+                                            PSA_BYTES_TO_BITS(key_data->len),
+                                            PSA_ALG_CCM);
+
+    PSA_ASSERT(psa_crypto_init());
+    psa_set_key_lifetime(&attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
+    psa_set_key_bits(&attributes, PSA_BYTES_TO_BITS(key_data->len));
+    psa_set_key_usage_flags(&attributes,
+                            PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_CCM);
+    PSA_ASSERT(psa_import_key(&attributes, key_data->x, key_data->len, &key));
+
+    PSA_ASSERT(psa_aead_encrypt(key, PSA_ALG_CCM,
+                                nonce->x, nonce->len,
+                                additional_data->x, additional_data->len,
+                                plaintext->x, plaintext->len,
+                                ciphertext, sizeof(ciphertext),
+                                &ciphertext_length));
+    PSA_ASSERT(psa_aead_decrypt(key, PSA_ALG_CCM,
+                                nonce->x, nonce->len,
+                                additional_data->x, additional_data->len,
+                                ciphertext, ciphertext_length,
+                                decrypted, sizeof(decrypted),
+                                &decrypted_length));
+    TEST_EQUAL(decrypted_length, plaintext->len);
+    TEST_MEMORY_COMPARE(decrypted, decrypted_length,
+                        plaintext->x, plaintext->len);
+
+    ciphertext[ciphertext_length - 1] ^= 1u;
+    TEST_EQUAL(psa_aead_decrypt(key, PSA_ALG_CCM,
+                                nonce->x, nonce->len,
+                                additional_data->x, additional_data->len,
+                                ciphertext, ciphertext_length,
+                                decrypted, sizeof(decrypted),
+                                &decrypted_length),
+               PSA_ERROR_INVALID_SIGNATURE);
+    ciphertext[ciphertext_length - 1] ^= 1u;
+
+    PSA_ASSERT(psa_aead_encrypt_setup(&encrypt_operation, key, PSA_ALG_CCM));
+    PSA_ASSERT(psa_aead_set_lengths(&encrypt_operation,
+                                    additional_data->len, plaintext->len));
+    PSA_ASSERT(psa_aead_set_nonce(&encrypt_operation, nonce->x, nonce->len));
+    PSA_ASSERT(psa_aead_update_ad(&encrypt_operation,
+                                  additional_data->x, additional_data->len));
+    PSA_ASSERT(psa_aead_update(&encrypt_operation,
+                               plaintext->x, plaintext->len,
+                               multipart_ciphertext,
+                               sizeof(multipart_ciphertext),
+                               &multipart_ciphertext_length));
+    PSA_ASSERT(psa_aead_finish(&encrypt_operation,
+                               multipart_ciphertext + multipart_ciphertext_length,
+                               sizeof(multipart_ciphertext) - multipart_ciphertext_length,
+                               &output_length,
+                               multipart_ciphertext + multipart_ciphertext_length + output_length,
+                               sizeof(multipart_ciphertext) - multipart_ciphertext_length - output_length,
+                               &tag_length));
+    multipart_ciphertext_length += output_length + tag_length;
+
+    PSA_ASSERT(psa_aead_decrypt_setup(&decrypt_operation, key, PSA_ALG_CCM));
+    PSA_ASSERT(psa_aead_set_lengths(&decrypt_operation,
+                                    additional_data->len, plaintext->len));
+    PSA_ASSERT(psa_aead_set_nonce(&decrypt_operation, nonce->x, nonce->len));
+    PSA_ASSERT(psa_aead_update_ad(&decrypt_operation,
+                                  additional_data->x, additional_data->len));
+    PSA_ASSERT(psa_aead_update(&decrypt_operation,
+                               multipart_ciphertext,
+                               multipart_ciphertext_length - tag_length,
+                               multipart_plaintext,
+                               sizeof(multipart_plaintext),
+                               &multipart_plaintext_length));
+    PSA_ASSERT(psa_aead_verify(&decrypt_operation,
+                               multipart_plaintext + multipart_plaintext_length,
+                               sizeof(multipart_plaintext) - multipart_plaintext_length,
+                               &output_length,
+                               multipart_ciphertext + multipart_ciphertext_length - tag_length,
+                               tag_length));
+    multipart_plaintext_length += output_length;
+    TEST_EQUAL(multipart_plaintext_length, plaintext->len);
+    TEST_MEMORY_COMPARE(multipart_plaintext, multipart_plaintext_length,
+                        plaintext->x, plaintext->len);
+
+exit:
+    psa_aead_abort(&encrypt_operation);
+    psa_aead_abort(&decrypt_operation);
+    psa_reset_key_attributes(&attributes);
+    psa_destroy_key(key);
+    PSA_DONE();
+#else
+    (void) key_data;
+    (void) nonce;
+    (void) additional_data;
+    (void) plaintext;
+    mbedtls_test_skip("IFX SE CCM driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */
+
+/* BEGIN_CASE */
+void ifx_se_mac_round_trip(data_t *key_data, data_t *input)
+{
+#if defined(IFX_PSA_SE_DPA_PRESENT) && defined(PSA_WANT_ALG_CMAC)
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_mac_operation_t sign_operation = PSA_MAC_OPERATION_INIT;
+    psa_mac_operation_t verify_operation = PSA_MAC_OPERATION_INIT;
+    mbedtls_svc_key_id_t key = MBEDTLS_SVC_KEY_ID_INIT;
+    uint8_t mac[PSA_MAC_MAX_SIZE] = { 0 };
+    uint8_t multipart_mac[PSA_MAC_MAX_SIZE] = { 0 };
+    size_t mac_length = 0;
+    size_t multipart_mac_length = 0;
+
+    PSA_ASSERT(psa_crypto_init());
+    psa_set_key_lifetime(&attributes,
+        PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_VOLATILE, PSA_KEY_LOCATION_IFX_SE));
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
+    psa_set_key_bits(&attributes, PSA_BYTES_TO_BITS(key_data->len));
+    psa_set_key_usage_flags(&attributes,
+                            PSA_KEY_USAGE_SIGN_MESSAGE |
+                            PSA_KEY_USAGE_VERIFY_MESSAGE);
+    psa_set_key_algorithm(&attributes, PSA_ALG_CMAC);
+    PSA_ASSERT(psa_import_key(&attributes, key_data->x, key_data->len, &key));
+
+    PSA_ASSERT(psa_mac_compute(key, PSA_ALG_CMAC,
+                               input->x, input->len,
+                               mac, sizeof(mac), &mac_length));
+    PSA_ASSERT(psa_mac_verify(key, PSA_ALG_CMAC,
+                               input->x, input->len, mac, mac_length));
+    mac[0] ^= 1u;
+    TEST_EQUAL(psa_mac_verify(key, PSA_ALG_CMAC,
+                               input->x, input->len, mac, mac_length),
+               PSA_ERROR_INVALID_SIGNATURE);
+    mac[0] ^= 1u;
+
+    PSA_ASSERT(psa_mac_sign_setup(&sign_operation, key, PSA_ALG_CMAC));
+    PSA_ASSERT(psa_mac_update(&sign_operation, input->x, input->len));
+    PSA_ASSERT(psa_mac_sign_finish(&sign_operation,
+                                   multipart_mac, sizeof(multipart_mac),
+                                   &multipart_mac_length));
+    PSA_ASSERT(psa_mac_verify_setup(&verify_operation, key, PSA_ALG_CMAC));
+    PSA_ASSERT(psa_mac_update(&verify_operation, input->x, input->len));
+    PSA_ASSERT(psa_mac_verify_finish(&verify_operation,
+                                     multipart_mac, multipart_mac_length));
+
+exit:
+    psa_mac_abort(&sign_operation);
+    psa_mac_abort(&verify_operation);
+    psa_reset_key_attributes(&attributes);
+    psa_destroy_key(key);
+    PSA_DONE();
+#else
+    (void) key_data;
+    (void) input;
+    mbedtls_test_skip("IFX SE CMAC driver is not enabled", __LINE__, __FILE__);
+    PSA_DONE();
+#endif
+}
+/* END_CASE */

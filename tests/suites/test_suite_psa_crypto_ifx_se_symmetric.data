@@ -1,0 +1,11 @@
+IFX SE imported AES key: CBC one-shot and multipart round trip
+depends_on:PSA_WANT_ALG_CBC_NO_PADDING:PSA_WANT_KEY_TYPE_AES
+ifx_se_cipher_round_trip:"404142434445464748494a4b4c4d4e4f":"101112131415161718191a1b1c1d1e1f":"00112233445566778899aabbccddeeff"
+
+IFX SE imported AES key: CCM one-shot and multipart round trip
+depends_on:PSA_WANT_ALG_CCM:PSA_WANT_KEY_TYPE_AES
+ifx_se_aead_round_trip:"404142434445464748494a4b4c4d4e4f":"101112131415161718191a1b":"0001020304050607":"00112233445566778899aabbccddeeff"
+
+IFX SE imported AES key: CMAC one-shot and multipart round trip
+depends_on:PSA_WANT_ALG_CMAC:PSA_WANT_KEY_TYPE_AES
+ifx_se_mac_round_trip:"404142434445464748494a4b4c4d4e4f":"00112233445566778899aabbccddeeff"

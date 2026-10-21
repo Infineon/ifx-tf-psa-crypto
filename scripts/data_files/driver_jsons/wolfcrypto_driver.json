@@ -1,0 +1,14 @@
+{
+    "_comment":     "Wolfcrypto transparent accelerator manifest. Dispatch bodies remain hand-written in the templates; entry_points is empty to avoid duplicate dispatch.",
+    "prefix":       "ifx_wolfcrypto",
+    "type":         "transparent",
+    "accelerator": true,
+    "mbedtls/h_condition":   "defined(IFX_PSA_WOLFCRYPTO_PRESENT)",
+    "headers":      ["ifx_wolfcrypto_transparent_functions.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(IFX_PSA_WOLFCRYPTO_PRESENT)",
+            "entry_points": []
+        }
+    ]
+}
